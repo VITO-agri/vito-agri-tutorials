@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [
+  "/dist",
+  "/notebooks",
+  "/scripts",
+  "/bin",
+  "/tests",
+]
+
+[tool.hatch.version]
+path = "src/vito_agri_tutorials/_version.py"
+pattern = "^__version__ = ['\"](?P<version>[^'\"]+)['\"]$"
+
+[project]
+name = "vito_agri_tutorials"
+authors = [
+    { name="Jeroen Degerickx" },
+]
+description = "VITO Agriculture Tutorials"
+readme = "README.md"
+requires-python = ">=3.11"
+# dynamic = ["version"]
+version = "0.0.1"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "openeo==0.39.1",
+    "ipykernel",
+    "ipyleaflet==0.19.2",
+    "geopandas==1.0.1",
+    "matplotlib==3.10.1",
+    "geojson==3.2.0",
+    "scipy==1.15.2",
+    "rasterio==1.4.3",
+  ]
+
+[project.urls]
+"Homepage" = "https://github.com/VITO-agri/vito-agri-tutorials"
+"Bug Tracker" = ""
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4.0",
+  "pytest-depends",  
+  "matplotlib>=3.3.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+  "tests",
+]
+addopts = [
+  "--import-mode=prepend",
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+# line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = [
+  "E501",  # Ignore "line-too-long" issues, let black handle that.
+]
