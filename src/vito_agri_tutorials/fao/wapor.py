@@ -10,6 +10,7 @@ from typing import Optional
 
 
 WAPOR3_BASE_URL = "gs://fao-gismgr-wapor-3-data/DATA/WAPOR-3/MAPSET"
+WAPOR2_BASE_URL = "gs://fao-gismgr-wapor-2-data/DATA/WAPOR-2/MAPSET"
 
 
 WAPOR3_SUPPORTED_VARIABLES = {
