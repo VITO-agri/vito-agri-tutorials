@@ -1,2 +1,5 @@
 *.tif
+*.tif.aux.xml
 *.pyc
+*.gpkg
+*.json
