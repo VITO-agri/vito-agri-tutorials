@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from vito_agri_tutorials.utils.geo import poly_latlon_to_utm
+from vito_agri_tutorials.resources import load_resource
 
 
 class ui_map:
@@ -196,11 +197,9 @@ class ui_map:
 class RegionPicker:
     def __init__(self, max_level: int = 1):
 
-        indir = Path(__file__).resolve().parents[1] / "resources"
-
-        self.adm0_df = gpd.read_file(indir / "GAUL_0.gpkg")
-        self.adm1_df = gpd.read_file(indir / "GAUL_1.gpkg")
-        self.adm2_df = gpd.read_file(indir / "GAUL_2.gpkg")
+        self.adm0_df = load_resource("GAUL_0")
+        self.adm1_df = load_resource("GAUL_1")
+        self.adm2_df = load_resource("GAUL_2")
 
         self.max_level = max_level
 
