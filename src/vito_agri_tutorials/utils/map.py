@@ -207,7 +207,7 @@ class RegionPicker:
 
         self.dropdown_adm0 = widgets.Dropdown(
             options=["Select Country"]
-            + sorted(list(self.adm0_df["ADM0_NAME"].unique())),
+            + sorted(list(self.adm0_df["gaul0_name"].unique())),
             description="Country:",
             style={"description_width": "initial"},
         )
@@ -276,10 +276,10 @@ class RegionPicker:
             self.dropdown_adm1.options = ["Select State"]
         else:
             filtered_states = self.adm1_df[
-                self.adm1_df["ADM0_NAME"] == selected_country
+                self.adm1_df["gaul0_name"] == selected_country
             ]
             self.dropdown_adm1.options = ["Select State"] + sorted(
-                list(filtered_states["ADM1_NAME"].unique())
+                list(filtered_states["gaul1_name"].unique())
             )
             self.plot_states(filtered_states)
         self.dropdown_adm1.value = "Select State"
@@ -299,10 +299,10 @@ class RegionPicker:
             self.dropdown_adm2.options = ["Select District"]
         else:
             filtered_districts = self.adm2_df[
-                self.adm2_df["ADM1_NAME"] == selected_state
+                self.adm2_df["gaul1_name"] == selected_state
             ]
             self.dropdown_adm2.options = ["Select District"] + sorted(
-                list(filtered_districts["ADM2_NAME"].unique())
+                list(filtered_districts["gaul2_name"].unique())
             )
             self.plot_districts(filtered_districts)
         self.dropdown_adm2.value = "Select District"
@@ -318,7 +318,7 @@ class RegionPicker:
                     ax.text(
                         centroid.x,
                         centroid.y,
-                        row["ADM2_NAME"],
+                        row["gaul2_name"],
                         fontsize=10,
                         ha="center",
                         color="red",
@@ -337,7 +337,7 @@ class RegionPicker:
                     ax.text(
                         centroid.x,
                         centroid.y,
-                        row["ADM1_NAME"],
+                        row["gaul1_name"],
                         fontsize=10,
                         ha="center",
                         color="red",
@@ -359,7 +359,7 @@ class RegionPicker:
                 }
                 self.dropdown_adm2.value = "Select District"
                 filtered_districts = self.adm2_df[
-                    self.adm2_df["ADM1_NAME"] == self.dropdown_adm1.value
+                    self.adm2_df["gaul1_name"] == self.dropdown_adm1.value
                 ]
                 self.plot_districts(filtered_districts)
             elif self.dropdown_adm1.value != "Select State":
@@ -370,7 +370,7 @@ class RegionPicker:
                 }
                 self.dropdown_adm1.value = "Select State"
                 filtered_states = self.adm1_df[
-                    self.adm1_df["ADM0_NAME"] == self.dropdown_adm0.value
+                    self.adm1_df["gaul0_name"] == self.dropdown_adm0.value
                 ]
                 self.plot_states(filtered_states)
             else:
@@ -421,7 +421,7 @@ class RegionPicker:
         # Get the corresponding geometries
         for level in range(level + 1):
             # Get attribute name
-            attr_name = f"ADM{level}_NAME"
+            attr_name = f"gaul{level}_name"
             # Filter on region names
             region_names_lvl = [region[f"L{level}"] for region in regions]
             gdf = gdf[gdf[attr_name].isin(region_names_lvl)]
