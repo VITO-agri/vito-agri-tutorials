@@ -70,7 +70,6 @@ def iterative_masked_savgol_filter(
         time_series (array-like): The input time series data.
         window_lengths (array-like): A list of window lengths for iterative filtering.
         polyorder (int): The order of the polynomial to fit.
-        mask (array-like): mask for data points, value of 0 to ignore them and 1 to take them into account.
         upper_envelope_filtering (bool): Whether to retain the maximum of the fit or the original data at each step.
 
     Returns:
@@ -80,8 +79,6 @@ def iterative_masked_savgol_filter(
     time_series = np.array(time_series, dtype=int)
     mask = create_mask_outliers(time_series, n=SPIKECUTOFF)
     time_series = time_series * mask
-    # if len(time_series) != len(mask):
-    #     raise ValueError("The time series and mask must have the same length.")
 
     # Interpolate over data points with value 0
     valid_indices = time_series != 0
@@ -98,13 +95,13 @@ def iterative_masked_savgol_filter(
     )
     interpolated_series = interp_func(np.arange(len(time_series)))
 
+    # Perform Savitzky-Golay filtering on the series
     smoothed_series = interpolated_series.copy()  # Start with the interpolated series
-
+    # Only use window lengths smaller than length of the time series
     while window_lengths[-1] > len((time_series - 1) / 2):
         window_lengths.pop(-1)
 
     for window_length in window_lengths:
-        # Perform Savitzky-Golay filtering on the series
         try:
             next_smoothed = savgol_filter(smoothed_series, window_length, polyorder)
         # If Savitzky-Golay filtering not possible, use interpolated value
@@ -115,6 +112,7 @@ def iterative_masked_savgol_filter(
             smoothed_series = np.maximum(next_smoothed, smoothed_series)
         else:
             smoothed_series = next_smoothed
+    smoothed_series = np.clip(smoothed_series, 0, 250)
     return smoothed_series.astype(np.uint8)
 
 
