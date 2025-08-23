@@ -16,6 +16,9 @@ from rasterio.enums import Resampling as ResamplingEnum
 from tqdm import tqdm
 from scipy import stats
 from loguru import logger
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
 
 from vito_agri_tutorials.utils.geotiff import (
     write_geotiff,
@@ -783,13 +786,7 @@ def determine_clusters_kmeans(
     -------
     None (clustering is saved in cpsz_file)
     """
-    import numpy as np
-    from sklearn.cluster import KMeans
-    from sklearn.metrics import silhouette_score
-    import rasterio
-    from tqdm import tqdm
-
-    logger.info("Clustering with scikit-learn...")
+    logger.info("Clustering with scikit-learn implementation of k-means...")
 
     # Read the input data
     data, meta = read_geotiff(
@@ -818,8 +815,6 @@ def determine_clusters_kmeans(
         sample_indices = np.arange(len(valid_pixels))
 
     # Standardize the data for better clustering
-    from sklearn.preprocessing import StandardScaler
-
     scaler = StandardScaler()
     sample_pixels_scaled = scaler.fit_transform(sample_pixels)
 
