@@ -1,5 +1,10 @@
-*.tif
-*.tif.aux.xml
+# Byte-compiled / optimized / DLL files
+.vscode
+__pycache__
+.ftpconfig
 *.pyc
-*.gpkg
-*.json
+*.py[cod]
+*$py.class
+
+notebooks/drought/download/*
+notebooks/drought/results/*
