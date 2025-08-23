@@ -29,7 +29,7 @@ from vito_agri_tutorials.utils.upperenvelop import upper_envelop
 
 # Path to the resources folder
 current_dir = os.path.dirname(__file__)
-resources_folder = os.path.join(os.path.split(current_dir)[0], "resources", "vici")
+resources_folder = os.path.join(current_dir, "resources", "vici")
 
 NYEARS_ARCHIVE = 20
 
@@ -740,16 +740,32 @@ def create_invalid_pixel_mask(ndvi_smoothed_file: Path, outfile: Path):
 
     logger.info(f"Number of valid pixels remaining: {np.sum(~invalid_pixels_mask)}")
 
+    # Create separate layer with distinction between two criteria
+    mask_classified = invalid_all_years.astype(np.uint8)
+    mask_classified[mask_classified == 1] = 2
+    mask_classified[water_mask] = 1
+
     # make sure nodata is set to 255
     invalid_pixels_mask = invalid_pixels_mask.astype(np.uint8)
+    mask_classified[mask_classified == 0] = 255
 
-    # Write final result to file
+    # Write final results to file
     write_geotiff(
         invalid_pixels_mask,
         outfile,
         epsg=metadata["epsg"],
         bounds=metadata["bounds"],
         band_names=["invalid_pixel_mask"],
+        datatype="uint8",
+        nodata=255,
+    )
+    outfile_classified = str(outfile).replace(".tif", "_classified.tif")
+    write_geotiff(
+        mask_classified,
+        outfile_classified,
+        epsg=metadata["epsg"],
+        bounds=metadata["bounds"],
+        band_names=["invalid_pixel_mask_classified"],
         datatype="uint8",
         nodata=255,
     )
@@ -1662,46 +1678,46 @@ def upper_envelope_smoothing(
 
 # ############################################################
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     basedir = Path(
-#         "/data/users/Private/jeroendegerickx/git/vito-agri/vito-agri-tutorials/notebooks/vici/results/run_20250820_163224"
-#     )
-#     aoi_gpkg_file = basedir / "AOI.gpkg"
+    basedir = Path(
+        "/data/users/Private/jeroendegerickx/git/vito-agri/vito-agri-tutorials/notebooks/drought/results/vici/run_20250820_163224"
+    )
+    aoi_gpkg_file = basedir / "AOI.gpkg"
 
-#     # specify start and end dates
-#     # start_date_archive = "2000-01-01"
-#     end_year_archive = 2019
+    # specify start and end dates
+    # start_date_archive = "2000-01-01"
+    end_year_archive = 2019
 
-#     start_date_archive, end_date_archive = get_vici_archive_dates(end_year_archive)
+    start_date_archive, end_date_archive = get_vici_archive_dates(end_year_archive)
 
-#     # Start the download
-#     archive_dir = basedir / "NDVI_archive"
-#     ndvi_dir = archive_dir / "NDVI_original"
-#     get_ndvi_data_terrascope(
-#         aoi_gpkg_file, ndvi_dir, start_date_archive, end_date_archive
-#     )
+    # Start the download
+    archive_dir = basedir / "NDVI_archive"
+    ndvi_dir = archive_dir / "NDVI_original"
+    get_ndvi_data_terrascope(
+        aoi_gpkg_file, ndvi_dir, start_date_archive, end_date_archive
+    )
 
-#     # NEED FUNCTION TO VISUALIZE NDVI DATA
+    # NEED FUNCTION TO VISUALIZE NDVI DATA
 
-#     # !! note that if a sequence of more than 12 dekads has no data, the entire series is masked!
+    # !! note that if a sequence of more than 12 dekads has no data, the entire series is masked!
 
-#     # Apply upper envelope smoothing
-#     ndvi_smoothed_file = archive_dir / "NDVI_smoothed.tif"
-#     upper_envelope_smoothing(
-#         ndvi_dir, start_date_archive, end_date_archive, ndvi_smoothed_file
-#     )
+    # Apply upper envelope smoothing
+    ndvi_smoothed_file = archive_dir / "NDVI_smoothed.tif"
+    upper_envelope_smoothing(
+        ndvi_dir, start_date_archive, end_date_archive, ndvi_smoothed_file
+    )
 
-#     invalid_pixel_mask_file = archive_dir / "invalid_pixel_mask.tif"
+    invalid_pixel_mask_file = archive_dir / "invalid_pixel_mask.tif"
 
-#     invalid_pixel_mask = create_invalid_pixel_mask(
-#         ndvi_smoothed_file, invalid_pixel_mask_file
-#     )
+    invalid_pixel_mask = create_invalid_pixel_mask(
+        ndvi_smoothed_file, invalid_pixel_mask_file
+    )
 
-#     stats_per_dekad_file = archive_dir / "stats_per_dekad.tif"
-#     stats_per_dekad = compute_stats_per_dekad(
-#         ndvi_smoothed_file, invalid_pixel_mask_file, stats_per_dekad_file
-#     )
+    stats_per_dekad_file = archive_dir / "stats_per_dekad.tif"
+    stats_per_dekad = compute_stats_per_dekad(
+        ndvi_smoothed_file, invalid_pixel_mask_file, stats_per_dekad_file
+    )
 
 #     cpsz_file = archive_dir / "cpsz.tif"
 
