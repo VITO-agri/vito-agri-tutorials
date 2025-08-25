@@ -730,6 +730,8 @@ def create_invalid_pixel_mask(ndvi_smoothed_file: Path, outfile: Path):
     invalid_all_years = np.array(slope_all_years < -0.084883047) | np.array(
         slope_all_years > 0.0814077858
     )
+    # ignore the ones that were already masked out
+    invalid_all_years[water_mask] = False
 
     logger.info(
         f"Number of pixels masked due to long term trends: {np.sum(invalid_all_years)}"
@@ -1396,10 +1398,7 @@ def compute_vici(
 
     Returns
     -------
-    vici : np.ndarray
-        The computed VICI values
-    quality_flags : np.ndarray
-        The quality flags for the VICI values
+    None (all results are save automatically as .tif files per dekad)
     """
     archive_dir = basedir / "NDVI_archive"
 
@@ -1525,7 +1524,7 @@ def compute_vici(
 
     logger.success(f"VICI and quality flags saved to {outdir}")
 
-    return vici, quality_flags
+    return
 
 
 def run_vici(
@@ -1551,6 +1550,7 @@ def run_vici(
 
     Returns
     -------
+    None (all results are save automatically as .tif files per dekad)
 
     """
     logger.info(f"Period: {start_date} - {end_date}")
@@ -1575,7 +1575,7 @@ def run_vici(
     upper_envelope_smoothing(ndvi_ori_dir, start_date, end_date, ndvi_smoothed_file)
 
     # Compute VICI and quality flags
-    vici, quality_flags = compute_vici(
+    compute_vici(
         basedir,
         ndvi_smoothed_file,
         start_date,
@@ -1585,7 +1585,7 @@ def run_vici(
         outdir,
     )
 
-    return vici, quality_flags
+    return
 
 
 def upper_envelope_smoothing(
