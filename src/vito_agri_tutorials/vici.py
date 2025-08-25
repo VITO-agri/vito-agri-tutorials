@@ -19,6 +19,9 @@ from loguru import logger
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+import matplotlib.cm as cm
 
 from vito_agri_tutorials.utils.geotiff import (
     write_geotiff,
@@ -39,6 +42,13 @@ NDVI_SCALE = 0.004
 NDVI_OFFSET = -0.08
 
 PERCENTILE_THRESHOLDS = [5, 15]
+
+QUALITY_FLAGS = {
+    252: "Smoothed data",
+    253: "Out of season",
+    254: "Invalid (trend/no data)",
+    255: "Other invalid",
+}
 
 ############################################################
 # SPATIAL EXTENT FUNCTIONS
@@ -1364,6 +1374,42 @@ def define_growing_seasons(p50_array, cpsz_file, outdir_seasons):
     return seasons
 
 
+def _get_percentiles_dekad(
+    final_thresholds_dir, lower_percentile, upper_percentile, dekad
+):
+    """
+    Get the lower and upper percentiles for a specific dekad.
+
+    Parameters
+    ----------
+    final_thresholds_dir : Path
+        Directory containing the final thresholds
+    lower_percentile : int
+        Value of the lower percentile
+    upper_percentile : int
+        Value of the upper percentile
+    dekad : str
+        Dekad identifier (e.g. "2021-01-01")
+
+    Returns
+    -------
+    lower_percentile_data : np.ndarray
+        Lower percentile data
+    upper_percentile_data : np.ndarray
+        Upper percentile data
+    """
+    lower_percentile_file = (
+        final_thresholds_dir / f"percentiles{lower_percentile}_{dekad}.tif"
+    )
+    lower_percentile_data = read_geotiff(lower_percentile_file, apply_scaling=True)
+    upper_percentile_file = (
+        final_thresholds_dir / f"percentiles{upper_percentile}_{dekad}.tif"
+    )
+    upper_percentile_data = read_geotiff(upper_percentile_file, apply_scaling=True)
+
+    return lower_percentile_data, upper_percentile_data
+
+
 def compute_vici(
     basedir: Path,
     ndvi_smoothed_file: Path,
@@ -1452,18 +1498,24 @@ def compute_vici(
                 250  # 250 is largest possible value (NDVI = 0.92)
             )
 
-            # Get percentiles
-            lower_percentile_file = (
-                final_thresholds_dir / f"percentiles{lower_percentile}_{dekad}.tif"
+            # Save NDVI adjusted
+            ndvi_adjusted_file = (
+                outfile_vici.parent / f"NDVI_adjusted_{date.replace('-', '')}.tif"
             )
-            lower_percentile_data = read_geotiff(
-                lower_percentile_file, apply_scaling=True
+            ndvi_adjusted = np.where(np.isnan(ndvi_adjusted), 255, ndvi_adjusted)
+            ndvi_adjusted = ndvi_adjusted.astype(np.uint8)
+            write_geotiff(
+                ndvi_adjusted,
+                ndvi_adjusted_file,
+                epsg=meta["epsg"],
+                bounds=meta["bounds"],
+                datatype="uint8",
+                nodata=255,
             )
-            upper_percentile_file = (
-                final_thresholds_dir / f"percentiles{upper_percentile}_{dekad}.tif"
-            )
-            upper_percentile_data = read_geotiff(
-                upper_percentile_file, apply_scaling=True
+
+            # Get percentiles for this dekad
+            lower_percentile_data, upper_percentile_data = _get_percentiles_dekad(
+                final_thresholds_dir, lower_percentile, upper_percentile, dekad
             )
 
             # Compute VICI
@@ -1676,94 +1728,213 @@ def upper_envelope_smoothing(
     return
 
 
-# ############################################################
+def compute_vici_zonal_stats(basedir: Path, percentile_numbers=PERCENTILE_THRESHOLDS):
 
-if __name__ == "__main__":
+    # Get VICI data
+    lower_percentile = percentile_numbers[0]
+    upper_percentile = percentile_numbers[1]
+    vici_dir = basedir / "VICI" / f"p{lower_percentile}_p{upper_percentile}"
+    vici_files = sorted(glob.glob(str(vici_dir / "VICI_*.tif")))
+    vici = []
+    for vici_file in vici_files:
+        vici.append(read_geotiff(vici_file))
+    vici = np.array(vici)
 
-    basedir = Path(
-        "/data/users/Private/jeroendegerickx/git/vito-agri/vito-agri-tutorials/notebooks/drought/results/vici/run_20250820_163224"
+    # Get zones
+    cpsz_file = basedir / "NDVI_archive" / "cpsz.tif"
+    cpsz = read_geotiff(cpsz_file, apply_scaling=False)
+    zones = np.unique(cpsz)[1:]
+
+    # Compute zonal statistics
+    zonal_stats = {}
+    for zone in zones:
+        zonal_stats[str(zone)] = {}
+        zonal_mask = np.tile(cpsz == zone, (vici.shape[0], 1, 1)).astype(float)
+        zonal_mask[zonal_mask == 0] = np.nan
+        zonal_vici = vici * zonal_mask
+        npixels = np.sum(cpsz == zone)
+        zonal_stats[str(zone)]["mean"] = np.nanmean(zonal_vici)
+        zonal_stats[str(zone)]["min"] = np.nanmin(zonal_vici)
+        zonal_stats[str(zone)]["max"] = np.nanmax(zonal_vici)
+        larger_than_zero = np.sum(zonal_vici > 0)
+        zonal_stats[str(zone)]["freq"] = (
+            larger_than_zero / (vici.shape[0] * npixels) * 100
+        )
+
+    return zonal_stats
+
+
+def show_dekadal_vici_result(
+    basedir: Path, dekad: str, percentile_numbers=PERCENTILE_THRESHOLDS
+):
+    """Show VICI results for a specific dekad as raster.
+
+    Parameters
+    ----------
+    basedir : Path
+        Path to where VICI results are stored.
+    dekad : str
+        The dekad to visualize in format %Y%m%d (e.g. 20210101)
+    percentile_numbers : tuple
+        The lower and upper percentile thresholds that were used for VICI computation.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the VICI or quality flags files are not found.
+    """
+
+    # Find the correct files and read them
+    vici_dir = basedir / "VICI"
+    vici_file = Path(glob.glob(str(vici_dir / "*" / f"VICI_{dekad}.tif"))[0])
+    if not vici_file.exists():
+        raise FileNotFoundError("VICI file not found.")
+    vici = read_geotiff(vici_file)
+    quality_flags_file = vici_file.parent / f"quality_flags_{dekad}.tif"
+    if not quality_flags_file.exists():
+        raise FileNotFoundError("Quality flags file not found.")
+    quality_flags = read_geotiff(quality_flags_file)
+
+    # Create figure with proper subplots
+    fig, axes = plt.subplots(1, 2, figsize=(15, 7))
+
+    # Plot VICI raster
+    im1 = axes[0].imshow(vici, cmap="viridis", vmin=0, vmax=100)
+    axes[0].set_title("VICI Raster - Drought Severity")
+    axes[0].axis("off")  # Remove axis ticks for cleaner look
+    cbar1 = plt.colorbar(im1, ax=axes[0], fraction=0.046, pad=0.04)
+
+    # Create a custom colormap for quality flags
+    flag_values = sorted(list(QUALITY_FLAGS.keys()))
+    min_flag_value = flag_values[0]
+    max_flag_value = flag_values[-1]
+    n_flags = len(flag_values)
+    colors = cm.tab10(np.linspace(0, 1, 10))[:n_flags]  # Take only first n_flags colors
+    custom_cmap = ListedColormap(colors)
+
+    # Plot Quality Flags with proper colormap and labels
+    im2 = axes[1].imshow(
+        quality_flags, cmap=custom_cmap, vmin=min_flag_value, vmax=max_flag_value
     )
-    aoi_gpkg_file = basedir / "AOI.gpkg"
+    axes[1].set_title("Quality Flags Raster")
+    axes[1].axis("off")  # Remove axis ticks for cleaner look
+    cbar2 = plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
+    cbar2.set_ticks(flag_values)
+    cbar2.set_ticklabels([QUALITY_FLAGS.get(flag, "Unknown") for flag in flag_values])
 
-    # specify start and end dates
-    # start_date_archive = "2000-01-01"
-    end_year_archive = 2019
+    plt.tight_layout()
+    plt.show()
 
-    start_date_archive, end_date_archive = get_vici_archive_dates(end_year_archive)
-
-    # Start the download
-    archive_dir = basedir / "NDVI_archive"
-    ndvi_dir = archive_dir / "NDVI_original"
-    get_ndvi_data_terrascope(
-        aoi_gpkg_file, ndvi_dir, start_date_archive, end_date_archive
+    # Print some statistics
+    print("\nVICI Statistics:")
+    print(f"Min: {np.nanmin(vici):.2f}")
+    print(f"Max: {np.nanmax(vici):.2f}")
+    print(f"Mean: {np.nanmean(vici):.2f}")
+    print(
+        f"Pixels with drought (VICI > 0): {np.sum(vici > 0)} ({np.sum(vici > 0)/np.sum(~np.isnan(vici))*100:.1f}%)"
     )
 
-    # NEED FUNCTION TO VISUALIZE NDVI DATA
+    print("\nQuality Flags Distribution:")
+    quality_unique = np.unique(quality_flags)
+    # remove nan
+    quality_unique = quality_unique[~np.isnan(quality_unique)]
+    for flag in sorted(quality_unique):
+        count = np.sum(quality_flags == flag)
+        percentage = count / quality_flags.size * 100
+        meaning = QUALITY_FLAGS.get(flag, "Unknown")
+        print(f"Flag {flag} ({meaning}): {count} pixels ({percentage:.1f}%)")
 
-    # !! note that if a sequence of more than 12 dekads has no data, the entire series is masked!
 
-    # Apply upper envelope smoothing
-    ndvi_smoothed_file = archive_dir / "NDVI_smoothed.tif"
-    upper_envelope_smoothing(
-        ndvi_dir, start_date_archive, end_date_archive, ndvi_smoothed_file
+def show_vici_result_pixel(basedir, x, y, percentile_numbers=PERCENTILE_THRESHOLDS):
+    """Show VICI results for a specific pixel.
+
+    Parameters
+    ----------
+    basedir : Path
+        Path to where VICI results are stored.
+    x : int
+        The x-coordinate of the pixel.
+    y : int
+        The y-coordinate of the pixel.
+    percentile_numbers : tuple, optional
+        The lower and upper percentile thresholds that were used for VICI computation.
+    """
+
+    # Get zone
+    cpsz_file = basedir / "NDVI_archive" / "cpsz.tif"
+    cpsz = read_geotiff(cpsz_file, apply_scaling=False)
+    zone = str(cpsz[x, y])
+    if zone == 0:
+        logger.warning(f"Pixel {x}, {y} is not part of any zone")
+        return
+    else:
+        logger.info(f"Pixel {x}, {y} is part of zone {zone}")
+
+    # Get zonal median
+    final_thresholds_dir = basedir / "NDVI_archive" / "final_thresholds"
+    p50_array_file = final_thresholds_dir / "p50_array.csv"
+    p50_array = pd.read_csv(p50_array_file, header=0)
+    p50 = p50_array.iloc[:, int(zone) - 1].values
+
+    # Get percentiles
+    lower_percentile = percentile_numbers[0]
+    upper_percentile = percentile_numbers[1]
+    dekads = get_dekads()
+    lower_percentiles = []
+    upper_percentiles = []
+    for dekad in dekads:
+        lower_percentile_data, upper_percentile_data = _get_percentiles_dekad(
+            final_thresholds_dir, lower_percentile, upper_percentile, dekad
+        )
+        lower_percentiles.append(lower_percentile_data[x, y])
+        upper_percentiles.append(upper_percentile_data[x, y])
+    lower_percentiles = np.array(lower_percentiles)
+    upper_percentiles = np.array(upper_percentiles)
+
+    # Get VICI data
+    vici_dir = basedir / "VICI" / f"p{lower_percentile}_p{upper_percentile}"
+    vici_files = sorted(glob.glob(str(vici_dir / "VICI_*.tif")))
+    vici = []
+    for vici_file in vici_files:
+        vici.append(read_geotiff(vici_file)[x, y])
+    vici = np.array(vici)
+
+    # Get adjusted NDVI data
+    adj_ndvi_files = sorted(glob.glob(str(vici_dir / "NDVI_adjusted_*.tif")))
+    adj_ndvi = []
+    for adj_ndvi_file in adj_ndvi_files:
+        adj_ndvi.append(read_geotiff(adj_ndvi_file)[x, y])
+    adj_ndvi = np.array(adj_ndvi)
+
+    # Plot time series
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+    axes = [axes]  # Ensure axes is a list for consistency
+    ax1 = axes[0]
+    ax1.plot(p50, label="Zonal Median (p50)", color="green", linestyle="--")
+    ax1.plot(
+        lower_percentiles,
+        label=f"Exit (p{lower_percentile})",
+        color="red",
+        linestyle="--",
     )
-
-    invalid_pixel_mask_file = archive_dir / "invalid_pixel_mask.tif"
-
-    invalid_pixel_mask = create_invalid_pixel_mask(
-        ndvi_smoothed_file, invalid_pixel_mask_file
+    ax1.plot(
+        upper_percentiles,
+        label=f"Trigger (p{upper_percentile})",
+        color="orange",
+        linestyle="--",
     )
-
-    stats_per_dekad_file = archive_dir / "stats_per_dekad.tif"
-    stats_per_dekad = compute_stats_per_dekad(
-        ndvi_smoothed_file, invalid_pixel_mask_file, stats_per_dekad_file
-    )
-
-#     cpsz_file = archive_dir / "cpsz.tif"
-
-#     determine_clusters_kmeans(
-#         stats_per_dekad_file,
-#         cpsz_file,
-#         min_zones=2,
-#         max_zones=5,
-#         sub_sample=10,
-#     )
-
-#     zonal_adjustments_file = archive_dir / "zonal_adjustments.tif"
-#     zonal_adjustments_dekad_dir = archive_dir / "zonal_adjustments_dekad"
-
-#     compute_zonal_ndvi_adjustments(
-#         ndvi_smoothed_file,
-#         cpsz_file,
-#         zonal_adjustments_file,
-#         zonal_adjustments_dekad_dir,
-#     )
-
-#     ndvi_adjusted_file = archive_dir / "NDVI_adjusted.tif"
-
-#     apply_zonal_ndvi_adjustments(
-#         ndvi_smoothed_file, zonal_adjustments_file, ndvi_adjusted_file
-#     )
-
-#     final_thresholds_dir = archive_dir / "final_thresholds"
-
-#     percentiles, p50_array = compute_payout_thresholds(
-#         ndvi_adjusted_file, cpsz_file, final_thresholds_dir
-#     )
-
-#     # Would be nice to show plot of percentiles and their variation?
-
-#     outdir_seasons = archive_dir / "seasons"
-
-#     seasons = define_growing_seasons(p50_array, cpsz_file, outdir_seasons)
-
-#     # NEED VISUALIZATION OF SEASONS!
-
-#     # NOW WE HAVE EVERYTHING WE NEED AND COMPUTE VICI OPERATIONALLY
-
-#     start_date = "2021-01-01"
-#     end_date = "2021-12-21"
-
-#     vici, quality_flags = run_vici(basedir, start_date, end_date)
-
-#     test = 2
+    ax1.plot(adj_ndvi, label="Adjusted NDVI", color="blue", linewidth=2)
+    ax1.set_title(f"VICI Time Series for Pixel ({x}, {y})")
+    ax1.set_xlim(-14, 41)
+    ax1.set_xlabel("Time")
+    ax1.set_ylabel("NDVI")
+    plt.legend(loc="upper left")
+    ax2 = ax1.twinx()
+    ax2.bar(np.arange(len(vici)), vici, label="VICI", color="black", alpha=0.3)
+    ax2.set_ylabel("VICI")
+    ax2.set_ylim(0, 100)
+    plt.legend(loc="upper right")
+    plt.grid()
+    plt.show()
