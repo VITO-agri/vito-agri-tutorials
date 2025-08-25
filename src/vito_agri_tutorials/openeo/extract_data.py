@@ -100,6 +100,29 @@ def _dwnld_cgls_ndvi_point(connection, collection, gdf, temporal_extent, outdir,
     return multi_index_df_to_single_index(df, "NDVI")
 
 
+def get_dekads_between_dates(start_date: str, end_date: str) -> list[str]:
+    """Get list of unique dekads between two dates."""
+
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date, "%Y-%m-%d")
+    start_year = start_date.year
+    end_year = end_date.year
+    years = list(range(start_year, end_year + 1))
+    days = ["01", "11", "21"]
+    months = [month for month in range(1, 13)]
+    dekads = [f"{b:0>2d}{a}" for b in months for a in days]
+    dekads_years = [f"{year}{dekad}" for year in years for dekad in dekads]
+
+    # Filter dekads based on the start and end date
+    dekads = [
+        dekad
+        for dekad in dekads_years
+        if start_date <= datetime.strptime(dekad, "%Y%m%d") < end_date
+    ]
+
+    return dekads
+
+
 def get_ndvi_1km_point(
     gdf: gpd.GeoDataFrame,
     start_date: str,
@@ -164,6 +187,15 @@ def get_ndvi_1km_point(
 
     # Merge data from 1km and 300m
     df = pd.concat(data)
+    df.index = pd.to_datetime(df.index)  # ensure DatetimeIndex
+    df.index = df.index.normalize().tz_localize(None)
+
+    # Now check for missing data and insert nan's if there is
+    expected_dates = get_dekads_between_dates(start_date, end_date)
+    index = df.index.strftime("%Y%m%d").to_list()
+    missing = [d for d in expected_dates if d not in index]
+    for m in missing:
+        df.loc[pd.to_datetime(m)] = np.nan
     df = df.sort_index()
 
     # Apply upperenvelop smoothing or linear interpolation
