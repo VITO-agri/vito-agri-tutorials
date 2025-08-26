@@ -1012,149 +1012,6 @@ def compute_stats_per_dekad(
     return
 
 
-def compute_zonal_ndvi_adjustments(
-    ndvi_smoothed_file: Path, cpsz_file: Path, outfile: Path, outdir_dekad: Path
-):
-    """
-    Compute NDVI adjustments per CPS zone and save the adjustments per dekad.
-
-    Parameters
-    ----------
-    ndvi_smoothed_file : Path
-        File with upper envelope smoothed NDVI data
-    cpsz_file : Path
-        File with CPS zones
-    outfile : Path
-        Filename for zone adjustments
-    outdir_dekad : Path
-        Output directory for zone adjustments per dekad
-
-    Returns
-    -------
-    None (zone adjustments are saved in archive_dir/adjustments/C_Adj.tif,
-            and per dekad in archive_dir/adjustments/zone_adjust/1970/)
-    """
-    logger.info("Computing NDVI adjustments per CPS zone...")
-
-    # Get the NDVI data
-    ndvi_smoothed, metadata = read_geotiff(
-        ndvi_smoothed_file, apply_scaling=True, return_metadata=True
-    )
-
-    # Read cpszs
-    cpszs = read_geotiff(cpsz_file, apply_scaling=False, return_metadata=False)
-    zones = np.unique(cpszs)[1:]  # First zone contains invalid pixels
-
-    # We need the map of pixel means (36 dekads) and the map of zonal medians (36 dekads)
-    dekads, nx, ny = ndvi_smoothed.shape
-    pixel_means = np.zeros((36, nx, ny))
-    zonal_medians = np.zeros((36, nx, ny)) * np.nan
-    for i in range(36):
-        dekad_bands = np.arange(i, dekads, 36)
-        cube = ndvi_smoothed[dekad_bands, :, :]
-        pixel_means[i, :, :] = np.nanmean(cube, axis=0)
-
-        for zone in zones:
-            mask = np.tile(cpszs == zone, (NYEARS_ARCHIVE, 1, 1)).astype(float)
-            mask[mask == 0] = np.nan
-            temp_cube = cube * mask
-            zonal_medians[i, cpszs == zone] = np.nanmedian(temp_cube)
-
-    # Invalid pixel mask is included via cpsz -> zonal_medians -> adjustment_cube
-    adjustment_cube = np.round(pixel_means - zonal_medians)
-    adjustment_cube[np.isnan(adjustment_cube)] = 32767
-    adjustment_cube = adjustment_cube.astype(int)
-
-    # Create new raster
-    write_geotiff(
-        adjustment_cube,
-        outfile,
-        epsg=metadata["epsg"],
-        bounds=metadata["bounds"],
-        datatype="int16",
-        nodata=32767,
-    )
-
-    # Also save them separately per dekad
-    outdir_dekad.mkdir(parents=True, exist_ok=True)
-    dekads = get_dekads()
-    for i in range(len(dekads)):
-        dekad_adjustment = adjustment_cube[i, :, :]
-        outfile = outdir_dekad / f"zone_adjust_{dekads[i]}.mpr.tif"
-        write_geotiff(
-            dekad_adjustment,
-            outfile,
-            epsg=metadata["epsg"],
-            bounds=metadata["bounds"],
-            datatype="int16",
-            nodata=32767,
-        )
-
-    logger.success(f"All zonal adjustments saved to {outdir_dekad}")
-
-    return
-
-
-def apply_zonal_ndvi_adjustments(
-    ndvi_smoothed_file: Path, zonal_adjustments_file: Path, outfile: Path
-):
-    """
-    Apply the zonal adjustments to the NDVI data.
-
-    Parameters
-    ----------
-    ndvi_smoothed_file : Path
-        File with upper envelope filtered and cropped data cube
-    zonal_adjustments_file : Path
-        File with zonal adjustments per dekad
-    outfile : Path
-        Output filename for adjusted NDVI values
-
-    Returns
-    -------
-    None (datacube with adjusted NDVI values is saved in archive_dir/NDVI_adjusted.tif)
-    """
-    logger.info("Applying zonal adjustment factor to NDVI values...")
-
-    # Get smoothed NDVI data
-    ndvi_smoothed, metadata = read_geotiff(
-        ndvi_smoothed_file, apply_scaling=True, return_metadata=True
-    )
-
-    # Get zonal adjustments
-    adj = read_geotiff(
-        zonal_adjustments_file, apply_scaling=True, return_metadata=False
-    )
-
-    # Loop through the bands and apply the adjustment factor
-    ndvi_adjusted = np.zeros(np.shape(ndvi_smoothed))
-    for i in range(metadata["bands"]):
-        data_dekad = ndvi_smoothed[i, :, :]
-        adj_dekad = adj[np.mod(i, 36), :, :]
-        ndvi_adjusted[i, :, :] = data_dekad - adj_dekad
-
-    ndvi_adjusted[ndvi_adjusted < 0] = 0  # 0 is smallest possible value (NDVI = -0.08)
-    ndvi_adjusted[ndvi_adjusted > 250] = (
-        250  # 250 is largest possible value (NDVI = 0.92)
-    )
-    ndvi_adjusted[np.isnan(ndvi_adjusted)] = 255
-    ndvi_adjusted = ndvi_adjusted.astype(np.uint8)
-
-    # Store adjusted cube
-    write_geotiff(
-        ndvi_adjusted,
-        outfile,
-        epsg=metadata["epsg"],
-        bounds=metadata["bounds"],
-        datatype="uint8",
-        nodata=255,
-    )
-
-    logger.success(f"Adjusted NDVI values saved to {outfile}")
-
-    return
-
-
 def get_dekads():
     """Get list of unique dekads in a year."""
 
@@ -1165,19 +1022,19 @@ def get_dekads():
 
 
 def compute_payout_thresholds(
-    ndvi_adjusted_file: Path,
+    ndvi_smoothed_file: Path,
     cpsz_file: Path,
     outdir_percentiles: Path,
     percentile_numbers: list = PERCENTILE_THRESHOLDS,
 ):
     """
-    Compute the payout thresholds, i.e. the limiting percentiles of adjusted NDVI values
+    Compute the payout thresholds, i.e. the limiting percentiles of smoothed NDVI values
     per dekad and per CPS zone.
 
     Parameters
     ----------
-    ndvi_adjusted_file : Path
-        Filename for adjusted NDVI values
+    ndvi_smoothed_file : Path
+        Filename for smoothed NDVI values
     cpsz_file : Path
         File with CPS zones
     outdir_percentiles : Path
@@ -1197,11 +1054,11 @@ def compute_payout_thresholds(
     # Make sure output dir exists
     outdir_percentiles.mkdir(parents=True, exist_ok=True)
 
-    # Get adjusted NDVI data
-    ndvi_adj, metadata = read_geotiff(
-        ndvi_adjusted_file, apply_scaling=True, return_metadata=True
+    # Get smoothed NDVI data
+    ndvi_smoothed, metadata = read_geotiff(
+        ndvi_smoothed_file, apply_scaling=True, return_metadata=True
     )
-    ndekads, nx, ny = ndvi_adj.shape
+    ndekads, nx, ny = ndvi_smoothed.shape
     dekads = get_dekads()
 
     # Load cpszs
@@ -1217,7 +1074,7 @@ def compute_payout_thresholds(
 
     for i in range(36):
         dekad_bands = np.arange(i, ndekads, 36)
-        cube = ndvi_adj[dekad_bands, :, :]
+        cube = ndvi_smoothed[dekad_bands, :, :]
 
         lta = np.full((nx, ny), 255).astype(int)
         for zone in zones:
@@ -1421,7 +1278,7 @@ def compute_vici(
     overwrite: bool = False,
 ):
     """
-    Compute the VICI values from the adjusted NDVI and percentiles.
+    Compute the VICI values from the smoothed NDVI and percentiles.
 
     Parameters
     ----------
@@ -1465,7 +1322,6 @@ def compute_vici(
     )
 
     # Folders with historical data
-    zonal_adjustments_dekad_dir = archive_dir / "zonal_adjustments_dekad"
     final_thresholds_dir = archive_dir / "final_thresholds"
 
     # All dates within the temporal extent
@@ -1484,42 +1340,13 @@ def compute_vici(
             # Get NDVI data
             ndvi_dekad = ndvi_smoothed[i, :, :]
 
-            # Adjust NDVI per zone
-            zone_adjust_file = (
-                zonal_adjustments_dekad_dir / f"zone_adjust_{dekad}.mpr.tif"
-            )
-            zone_adjust = read_geotiff(zone_adjust_file, apply_scaling=True)
-            # Apply adjustment
-            ndvi_adjusted = ndvi_dekad - zone_adjust
-            ndvi_adjusted[ndvi_adjusted < 0] = (
-                0  # 0 is smallest possible value (NDVI = -0.08)
-            )
-            ndvi_adjusted[ndvi_adjusted > 250] = (
-                250  # 250 is largest possible value (NDVI = 0.92)
-            )
-
-            # Save NDVI adjusted
-            ndvi_adjusted_file = (
-                outfile_vici.parent / f"NDVI_adjusted_{date.replace('-', '')}.tif"
-            )
-            ndvi_adjusted = np.where(np.isnan(ndvi_adjusted), 255, ndvi_adjusted)
-            ndvi_adjusted = ndvi_adjusted.astype(np.uint8)
-            write_geotiff(
-                ndvi_adjusted,
-                ndvi_adjusted_file,
-                epsg=meta["epsg"],
-                bounds=meta["bounds"],
-                datatype="uint8",
-                nodata=255,
-            )
-
             # Get percentiles for this dekad
             lower_percentile_data, upper_percentile_data = _get_percentiles_dekad(
                 final_thresholds_dir, lower_percentile, upper_percentile, dekad
             )
 
             # Compute VICI
-            vici = (upper_percentile_data - ndvi_adjusted) / (
+            vici = (upper_percentile_data - ndvi_dekad) / (
                 upper_percentile_data - lower_percentile_data
             )
 
@@ -1785,8 +1612,10 @@ def show_dekadal_vici_result(
     """
 
     # Find the correct files and read them
-    vici_dir = basedir / "VICI"
-    vici_file = Path(glob.glob(str(vici_dir / "*" / f"VICI_{dekad}.tif"))[0])
+    lower_percentile = percentile_numbers[0]
+    upper_percentile = percentile_numbers[1]
+    vici_dir = basedir / "VICI" / f"p{lower_percentile}_p{upper_percentile}"
+    vici_file = Path(glob.glob(str(vici_dir / f"VICI_{dekad}.tif"))[0])
     if not vici_file.exists():
         raise FileNotFoundError("VICI file not found.")
     vici = read_geotiff(vici_file)
@@ -1845,7 +1674,9 @@ def show_dekadal_vici_result(
         print(f"Flag {flag} ({meaning}): {count} pixels ({percentage:.1f}%)")
 
 
-def show_vici_result_pixel(basedir, x, y, percentile_numbers=PERCENTILE_THRESHOLDS):
+def show_vici_result_pixel(
+    basedir, x, y, start_date, end_date, percentile_numbers=PERCENTILE_THRESHOLDS
+):
     """Show VICI results for a specific pixel.
 
     Parameters
@@ -1856,6 +1687,10 @@ def show_vici_result_pixel(basedir, x, y, percentile_numbers=PERCENTILE_THRESHOL
         The x-coordinate of the pixel.
     y : int
         The y-coordinate of the pixel.
+    start_date : str
+        The start date for the analysis.
+    end_date : str
+        The end date for the analysis.
     percentile_numbers : tuple, optional
         The lower and upper percentile thresholds that were used for VICI computation.
     """
@@ -1899,12 +1734,10 @@ def show_vici_result_pixel(basedir, x, y, percentile_numbers=PERCENTILE_THRESHOL
         vici.append(read_geotiff(vici_file)[x, y])
     vici = np.array(vici)
 
-    # Get adjusted NDVI data
-    adj_ndvi_files = sorted(glob.glob(str(vici_dir / "NDVI_adjusted_*.tif")))
-    adj_ndvi = []
-    for adj_ndvi_file in adj_ndvi_files:
-        adj_ndvi.append(read_geotiff(adj_ndvi_file)[x, y])
-    adj_ndvi = np.array(adj_ndvi)
+    # Get smoothed NDVI data for this pixel
+    ndvi_dir = basedir / "NDVI"
+    ndvi_smoothed_file = ndvi_dir / f"NDVI_smoothed_{start_date}_{end_date}.tif"
+    smoothed_ndvi = read_geotiff(ndvi_smoothed_file)[:, x, y]
 
     # Plot time series
     import matplotlib.pyplot as plt
@@ -1925,7 +1758,7 @@ def show_vici_result_pixel(basedir, x, y, percentile_numbers=PERCENTILE_THRESHOL
         color="orange",
         linestyle="--",
     )
-    ax1.plot(adj_ndvi, label="Adjusted NDVI", color="blue", linewidth=2)
+    ax1.plot(smoothed_ndvi, label="Smoothed NDVI", color="blue", linewidth=2)
     ax1.set_title(f"VICI Time Series for Pixel ({x}, {y})")
     ax1.set_xlim(-14, 41)
     ax1.set_xlabel("Time")
