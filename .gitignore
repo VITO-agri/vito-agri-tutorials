@@ -8,3 +8,4 @@ __pycache__
 
 notebooks/drought/download/*
 notebooks/drought/results/*
+notebooks/parcel/data/*
