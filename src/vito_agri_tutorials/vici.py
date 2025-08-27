@@ -1063,7 +1063,10 @@ def compute_payout_thresholds(
 
     # Load cpszs
     cpszs = read_geotiff(cpsz_file, apply_scaling=False, return_metadata=False)
-    zones = np.unique(cpszs)[1:]
+    zones = np.unique(cpszs)
+    # ignore zero
+    if 0 in zones:
+        zones = zones[zones != 0]
     nzones = len(zones)
 
     # Get percentiles arrays
@@ -1161,7 +1164,10 @@ def define_growing_seasons(p50_array, cpsz_file, outdir_seasons):
 
     # Get the zones
     cpszs, meta = read_geotiff(cpsz_file, apply_scaling=False, return_metadata=True)
-    zone_labels = np.unique(cpszs)[1:]
+    zone_labels = np.unique(cpszs)
+    # ignore zero
+    if 0 in zone_labels:
+        zone_labels = zone_labels[zone_labels != 0]
 
     # Get number of dekads and zones from lta data
     ndekads, nzones = p50_array.shape
@@ -1570,7 +1576,10 @@ def compute_vici_zonal_stats(basedir: Path, percentile_numbers=PERCENTILE_THRESH
     # Get zones
     cpsz_file = basedir / "NDVI_archive" / "cpsz.tif"
     cpsz = read_geotiff(cpsz_file, apply_scaling=False)
-    zones = np.unique(cpsz)[1:]
+    zones = np.unique(cpsz)
+    # ignore zero
+    if 0 in zones:
+        zones = zones[zones != 0]
 
     # Compute zonal statistics
     zonal_stats = {}
