@@ -507,7 +507,7 @@ def get_data_local_folder(
         date = dates[i]
         year = date[:4]
 
-        logger.info(f"Processing {date}...")
+        logger.debug(f"Processing {date}...")
 
         outfile = outdir / f"{date}.tif"
         if not outfile.exists() or overwrite:
