@@ -14,12 +14,20 @@ exclude = [
 packages = ["src/vito_agri_tutorials"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"notebooks/drought/1_ndvi_anomalies.ipynb" = "vito_agri_tutorials/_notebooks/ndvi/1_ndvi_anomalies.ipynb"
+"notebooks/drought/1_ndvi_anomalies.ipynb" = "vito_agri_tutorials/_notebooks/drought/1_ndvi_anomalies.ipynb"
+"notebooks/drought/2_asis_data_access.ipynb" = "vito_agri_tutorials/_notebooks/drought/2_asis_data_access.ipynb"
+"notebooks/drought/3_wapor_data_access.ipynb" = "vito_agri_tutorials/_notebooks/drought/3_wapor_data_access.ipynb"
+"notebooks/drought/4_vici.ipynb" = "vito_agri_tutorials/_notebooks/drought/4_vici.ipynb"
+"notebooks/drought/ASIS_README.md" = "vito_agri_tutorials/_notebooks/drought/ASIS_README.md"
 
 [tool.hatch.build.targets.sdist]
 include = [
   "/src",
   "/notebooks/drought/1_ndvi_anomalies.ipynb",
+  "/notebooks/drought/2_asis_data_access.ipynb",
+  "/notebooks/drought/3_wapor_data_access.ipynb",
+  "/notebooks/drought/4_vici.ipynb",
+  "/notebooks/drought/ASIS_README.md",
   "/pyproject.toml",
   "/README.md",
   "/LICENSE",
@@ -50,7 +58,7 @@ dependencies = []
 "Bug Tracker" = ""
 
 [project.optional-dependencies]
-ndvi = [
+ndvi-anomalies = [
   "openeo>=0.39.1,<1",
   "ipyleaflet>=0.19.2,<1",
   "ipywidgets>=8.1,<9",
@@ -64,6 +72,58 @@ ndvi = [
   "pandas>=2.2,<3",
   "scipy>=1.15.2,<2",
   "xarray>=2025.1.1",
+  "loguru>=0.7,<1",
+  "requests>=2.31,<3",
+]
+asis = [
+  "ipyleaflet>=0.19.2,<1",
+  "ipywidgets>=8.1,<9",
+  "ipython>=8",
+  "geopandas>=1.0.1,<2",
+  "shapely>=2,<3",
+  "pyproj>=3.6,<4",
+  "matplotlib>=3.10.1,<4",
+  "geojson>=3.2.0,<4",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "rasterio>=1.4.3,<2",
+  "loguru>=0.7,<1",
+  "requests>=2.31,<3",
+]
+wapor = [
+  "ipyleaflet>=0.19.2,<1",
+  "ipywidgets>=8.1,<9",
+  "ipython>=8",
+  "geopandas>=1.0.1,<2",
+  "shapely>=2,<3",
+  "pyproj>=3.6,<4",
+  "matplotlib>=3.10.1,<4",
+  "geojson>=3.2.0,<4",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "rasterio>=1.4.3,<2",
+  "loguru>=0.7,<1",
+  "requests>=2.31,<3",
+]
+vici = [
+  "openeo>=0.39.1,<1",
+  "ipyleaflet>=0.19.2,<1",
+  "ipywidgets>=8.1,<9",
+  "ipython>=8",
+  "geopandas>=1.0.1,<2",
+  "shapely>=2,<3",
+  "pyproj>=3.6,<4",
+  "matplotlib>=3.10.1,<4",
+  "geojson>=3.2.0,<4",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "scipy>=1.15.2,<2",
+  "xarray>=2025.1.1",
+  "rasterio>=1.4.3,<2",
+  "netCDF4>=1.7,<2",
+  "scikit-learn>=1.6,<2",
+  "tqdm>=4.66,<5",
+  "python-dateutil>=2.9,<3",
   "loguru>=0.7,<1",
   "requests>=2.31,<3",
 ]
