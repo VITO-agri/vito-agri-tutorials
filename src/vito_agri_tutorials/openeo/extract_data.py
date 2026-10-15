@@ -61,9 +61,9 @@ def _dwnld_cgls_ndvi_point(connection, collection, gdf, temporal_extent, outdir,
 
     # First determine which bands to download (NOBS not available for 1km)
     if res == "300m":
-        bands = ["NDVI", "NOBS"]
+        bands = ["ndvi", "nobs"]
     else:
-        bands = ["NDVI"]
+        bands = ["ndvi"]
 
     # Check if already downloaded or not
     outfile = outdir / "timeseries.json"
@@ -94,10 +94,10 @@ def _dwnld_cgls_ndvi_point(connection, collection, gdf, temporal_extent, outdir,
 
     if res == "300m":
         # additional masking using NOBS
-        df["NDVI"] = df["NDVI"].where(df["NOBS"] != 0, np.nan)
-        df = df.drop(columns=["NOBS"])
+        df["ndvi"] = df["ndvi"].where(df["nobs"] != 0, np.nan)
+        df = df.drop(columns=["nobs"])
 
-    return multi_index_df_to_single_index(df, "NDVI")
+    return multi_index_df_to_single_index(df, "ndvi")
 
 
 def get_dekads_between_dates(start_date: str, end_date: str) -> list[str]:
