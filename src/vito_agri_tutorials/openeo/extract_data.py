@@ -161,7 +161,7 @@ def get_ndvi_1km_point(
     if temporal_extent_1km:
         # Get 1km data
         outdir_col = outdir / "1km"
-        collection = "CGLS_NDVI_V3_GLOBAL"
+        collection = "CLMS_NDVI_GLOBAL_1KM_10DAILY_V3"
 
         data.append(
             _dwnld_cgls_ndvi_point(
@@ -171,7 +171,7 @@ def get_ndvi_1km_point(
 
     if temporal_extent_300m:
         # Get 300m data
-        collection = "CGLS_NDVI300_V2_GLOBAL"
+        collection = "CLMS_NDVI_GLOBAL_300M_10DAILY_V3"
         outdir_col = outdir / "300m"
 
         data.append(
