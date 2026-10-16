@@ -129,7 +129,7 @@ def get_ndvi_1km_point(
     start_date: str,
     end_date: str,
     outdir: Path,
-    upperenvelop=True,
+    upperenvelop=False,
 ) -> pd.DataFrame:
     """
     Download 1km NDVI data for one or severel point locations.
@@ -201,7 +201,12 @@ def get_ndvi_1km_point(
 
     # Apply upperenvelop smoothing or linear interpolation
     if upperenvelop:
+        # this only works on uint8 data, so we rescale the data to 0-255 range
+        df = (df + 0.08) / 0.004
         df[df.isna()] = 0
+        df[df > 255] = 255  # clip values to 0-255 range
+        df[df < 0] = 0  # clip values to 0-255 range
+        df = df.round()
         df = df.astype(np.uint8)
         df = df.apply(lambda x: upper_envelop(x))
     else:
