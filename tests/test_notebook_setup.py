@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vito_agri_tutorials import __version__
-from vito_agri_tutorials.tutorials import install_tutorial
+from vito_agri_tutorials.tutorials import _TUTORIALS, install_tutorial
 
 
 NOTEBOOK = (
@@ -84,7 +84,7 @@ class NotebookSetupTests(unittest.TestCase):
         run.assert_not_called()
 
     def test_every_tutorial_installs_its_declared_extra(self):
-        for tutorial in ("ndvi-anomalies", "asis", "wapor", "vici"):
+        for tutorial in _TUTORIALS:
             with self.subTest(tutorial=tutorial):
                 result = subprocess.CompletedProcess([], 0, stdout="")
                 with patch("subprocess.run", return_value=result) as run:

@@ -19,6 +19,19 @@ packages = ["src/vito_agri_tutorials"]
 "notebooks/drought/3_wapor_data_access.ipynb" = "vito_agri_tutorials/_notebooks/drought/3_wapor_data_access.ipynb"
 "notebooks/drought/4_vici.ipynb" = "vito_agri_tutorials/_notebooks/drought/4_vici.ipynb"
 "notebooks/drought/ASIS_README.md" = "vito_agri_tutorials/_notebooks/drought/ASIS_README.md"
+"notebooks/parcel/1_Preprocessing.ipynb" = "vito_agri_tutorials/_notebooks/parcel/1_Preprocessing.ipynb"
+"notebooks/parcel/2_Field_delineation_and_phenology.ipynb" = "vito_agri_tutorials/_notebooks/parcel/2_Field_delineation_and_phenology.ipynb"
+"notebooks/parcel/3_Croptype_mapping.ipynb" = "vito_agri_tutorials/_notebooks/parcel/3_Croptype_mapping.ipynb"
+"notebooks/openeo/Sentinel-2-retrieval.ipynb" = "vito_agri_tutorials/_notebooks/openeo/Sentinel-2-retrieval.ipynb"
+"notebooks/timeseries_decomposition/A_visualisation.ipynb" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/A_visualisation.ipynb"
+"notebooks/timeseries_decomposition/B_preprocessing.ipynb" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/B_preprocessing.ipynb"
+"notebooks/timeseries_decomposition/C_decomposition.ipynb" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/C_decomposition.ipynb"
+"notebooks/timeseries_decomposition/D_change.ipynb" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/D_change.ipynb"
+"notebooks/timeseries_decomposition/data/A_visualisation" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/data/A_visualisation"
+"notebooks/timeseries_decomposition/data/B_preprocessing" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/data/B_preprocessing"
+"notebooks/timeseries_decomposition/data/D_change_detection/ts_fire.csv" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/data/D_change_detection/ts_fire.csv"
+"notebooks/timeseries_decomposition/data/D_change_detection/ts_fire2.csv" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/data/D_change_detection/ts_fire2.csv"
+"notebooks/timeseries_decomposition/auxiliary" = "vito_agri_tutorials/_notebooks/timeseries_decomposition/auxiliary"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -28,6 +41,13 @@ include = [
   "/notebooks/drought/3_wapor_data_access.ipynb",
   "/notebooks/drought/4_vici.ipynb",
   "/notebooks/drought/ASIS_README.md",
+  "/notebooks/parcel/*.ipynb",
+  "/notebooks/openeo/*.ipynb",
+  "/notebooks/timeseries_decomposition/*.ipynb",
+  "/notebooks/timeseries_decomposition/data/A_visualisation/*.csv",
+  "/notebooks/timeseries_decomposition/data/B_preprocessing/*.csv",
+  "/notebooks/timeseries_decomposition/data/D_change_detection/*.csv",
+  "/notebooks/timeseries_decomposition/auxiliary",
   "/pyproject.toml",
   "/README.md",
   "/LICENSE",
@@ -126,6 +146,100 @@ vici = [
   "python-dateutil>=2.9,<3",
   "loguru>=0.7,<1",
   "requests>=2.31,<3",
+]
+parcel-preprocessing = [
+  "ipython>=8",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "matplotlib>=3.10.1,<4",
+  "xarray>=2025.1.1",
+  "netCDF4>=1.7,<2",
+  "dask[array]>=2025.3",
+  "numba>=0.61,<1",
+  "python-dateutil>=2.9,<3",
+  "loguru>=0.7,<1",
+  "requests>=2.31,<3",
+]
+parcel-phenology = [
+  "ipython>=8",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "matplotlib>=3.10.1,<4",
+  "xarray>=2025.1.1",
+  "netCDF4>=1.7,<2",
+  "dask[array]>=2025.3",
+  "numba>=0.61,<1",
+  "python-dateutil>=2.9,<3",
+  "scipy>=1.15.2,<2",
+  "scikit-image>=0.25,<1",
+  "loguru>=0.7,<1",
+  "requests>=2.31,<3",
+]
+parcel-croptype = [
+  "ipython>=8",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "matplotlib>=3.10.1,<4",
+  "xarray>=2025.1.1",
+  "netCDF4>=1.7,<2",
+  "dask[array]>=2025.3",
+  "numba>=0.61,<1",
+  "python-dateutil>=2.9,<3",
+  "geopandas>=1.0.1,<2",
+  "shapely>=2,<3",
+  "pyproj>=3.6,<4",
+  "rasterio>=1.4.3,<2",
+  "scipy>=1.15.2,<2",
+  "scikit-learn>=1.6,<2",
+  "imbalanced-learn>=0.13,<1",
+  "catboost>=1.2.8,<2",
+  "seaborn>=0.13,<1",
+  "loguru>=0.7,<1",
+  "requests>=2.31,<3",
+]
+sentinel2-retrieval = [
+  "openeo>=0.39.1,<1",
+  "ipyleaflet>=0.19.2,<1",
+  "ipywidgets>=8.1,<9",
+  "ipython>=8",
+  "geopandas>=1.0.1,<2",
+  "shapely>=2,<3",
+  "pyproj>=3.6,<4",
+  "matplotlib>=3.10.1,<4",
+  "geojson>=3.2.0,<4",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "xarray>=2025.1.1",
+  "netCDF4>=1.7,<2",
+  "loguru>=0.7,<1",
+  "requests>=2.31,<3",
+]
+timeseries-visualisation = [
+  "ipython>=8",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "matplotlib>=3.10.1,<4",
+]
+timeseries-preprocessing = [
+  "ipython>=8",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "matplotlib>=3.10.1,<4",
+  "scipy>=1.15.2,<2",
+]
+timeseries-decomposition = [
+  "ipython>=8",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "matplotlib>=3.10.1,<4",
+  "statsmodels>=0.14.4,<1",
+]
+timeseries-change = [
+  "ipython>=8",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "matplotlib>=3.10.1,<4",
+  "statsmodels>=0.14.4,<1",
 ]
 dev = [
   "pytest>=7.4.0",
