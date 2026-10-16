@@ -13,19 +13,6 @@ from vito_agri_tutorials.utils.upperenvelop import upper_envelop
 from vito_agri_tutorials.openeo.auth import connect_openeo
 
 
-SCALE_FACTOR = {
-    "NDVI": 0.004,
-}
-
-OFFSET = {
-    "NDVI": -0.08,
-}
-
-NODATA_THRESHOLD = {
-    "NDVI": 250,
-}
-
-
 def _split_temporal_extent_cgls_1km(start_date: str, end_date: str) -> tuple[list[str]]:
 
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
@@ -81,20 +68,14 @@ def _dwnld_cgls_ndvi_point(connection, collection, gdf, temporal_extent, outdir,
         )
 
         ndvi_band = cube.band("ndvi")
-
-        nodata_mask = ndvi_band > NODATA_THRESHOLD["NDVI"]
-
-        ndvi_physical = ndvi_band * SCALE_FACTOR["NDVI"] + OFFSET["NDVI"]
-
-        ndvi_masked = ndvi_physical.mask(nodata_mask)
-        ndvi_masked = ndvi_masked.add_dimension(name="bands", label="ndvi", type="bands")
+        ndvi_band = ndvi_band.add_dimension(name="bands", label="ndvi", type="bands")
 
         if res == "300m":
             nobs_band = cube.band("nobs")
             nobs_band = nobs_band.add_dimension(name="bands", label="nobs", type="bands")
-            processed_cube = ndvi_masked.merge_cubes(nobs_band)
+            processed_cube = ndvi_band.merge_cubes(nobs_band)
         else:
-            processed_cube = ndvi_masked
+            processed_cube = ndvi_band
 
         spatial_extent = gdf_to_geojson(gdf)
 
