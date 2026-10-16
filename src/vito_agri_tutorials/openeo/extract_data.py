@@ -93,8 +93,11 @@ def _dwnld_cgls_ndvi_point(connection, collection, gdf, temporal_extent, outdir,
     # Convert timeseries json to dataframe
     df = openeo_timeseries_json_to_df(outfile, gdf["id"].values, bands)
 
+    # Get rid of unrealistic NDVI values
+    df["ndvi"] = df["ndvi"].where((df["ndvi"] >= -1) & (df["ndvi"] <= 1), np.nan)
+
+    # additional masking using NOBS
     if res == "300m":
-        # additional masking using NOBS
         df["ndvi"] = df["ndvi"].where(df["nobs"] != 0, np.nan)
         df = df.drop(columns=["nobs"])
 
@@ -129,7 +132,7 @@ def get_ndvi_1km_point(
     start_date: str,
     end_date: str,
     outdir: Path,
-    upperenvelop=False,
+    upperenvelop=True,
 ) -> pd.DataFrame:
     """
     Download 1km NDVI data for one or severel point locations.
@@ -201,17 +204,23 @@ def get_ndvi_1km_point(
 
     # Apply upperenvelop smoothing or linear interpolation
     if upperenvelop:
-        # this only works on uint8 data, so we rescale the data to 0-255 range
-        df = (df + 0.08) / 0.004
-        df[df.isna()] = 0
-        df[df > 255] = 255  # clip values to 0-255 range
-        df[df < 0] = 0  # clip values to 0-255 range
-        df = df.round()
-        df = df.astype(np.uint8)
+        # Map NDVI [-1, 1] to [2, 250]; reserve 0 for missing data.
+        df = (
+            (df.clip(lower=-1, upper=1) + 1)
+            .mul(124)
+            .add(2)
+            .round()
+            .fillna(0)
+            .astype(np.uint8)
+        )
+
         df = df.apply(lambda x: upper_envelop(x))
+
+        # Restore NDVI units; invalid output becomes NaN.
+        df = (df.where(df >= 2).astype(float) - 2) / 124 - 1
     else:
-        df = df.astype(float)
         # Apply interpolation
+        df = df.astype(float)
         df = df.interpolate(method="time", limit_area="inside")
 
     return df
