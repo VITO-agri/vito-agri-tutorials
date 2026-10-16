@@ -21,6 +21,10 @@ OFFSET = {
     "NDVI": -0.08,
 }
 
+NODATA_THRESHOLD = {
+    "NDVI": 250,
+}
+
 
 def _split_temporal_extent_cgls_1km(start_date: str, end_date: str) -> tuple[list[str]]:
 
@@ -70,15 +74,31 @@ def _dwnld_cgls_ndvi_point(connection, collection, gdf, temporal_extent, outdir,
     if not outfile.exists():
 
         # Load collection
-        ndvi_cube = connection.load_collection(
+        cube = connection.load_collection(
             collection,
             temporal_extent=temporal_extent,
             bands=bands,
         )
 
+        ndvi_band = cube.band("ndvi")
+
+        nodata_mask = ndvi_band > NODATA_THRESHOLD["NDVI"]
+
+        ndvi_physical = ndvi_band * SCALE_FACTOR["NDVI"] + OFFSET["NDVI"]
+
+        ndvi_masked = ndvi_physical.mask(nodata_mask)
+        ndvi_masked = ndvi_masked.add_dimension(name="bands", label="ndvi", type="bands")
+
+        if res == "300m":
+            nobs_band = cube.band("nobs")
+            nobs_band = nobs_band.add_dimension(name="bands", label="nobs", type="bands")
+            processed_cube = ndvi_masked.merge_cubes(nobs_band)
+        else:
+            processed_cube = ndvi_masked
+
         spatial_extent = gdf_to_geojson(gdf)
 
-        ndvi_ts = ndvi_cube.aggregate_spatial(geometries=spatial_extent, reducer="mean")
+        ndvi_ts = processed_cube.aggregate_spatial(geometries=spatial_extent, reducer="mean")
 
         # Create and run job
         job = ndvi_ts.create_job(title=f"{collection} download point")
