@@ -220,18 +220,12 @@ def get_ndvi_1km_point(
 
     # Apply upperenvelop smoothing or linear interpolation
     if upperenvelop:
-        df[df > 250] = 0
         df[df.isna()] = 0
         df = df.astype(np.uint8)
         df = df.apply(lambda x: upper_envelop(x))
     else:
         df = df.astype(float)
-        # Mask invalid data (DN > 250)
-        df[df > 250] = np.nan
         # Apply interpolation
         df = df.interpolate(method="time", limit_area="inside")
-
-    # Apply scale factor and offset
-    df = df * SCALE_FACTOR["NDVI"] + OFFSET["NDVI"]
 
     return df
