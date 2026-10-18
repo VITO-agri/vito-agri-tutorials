@@ -3,8 +3,8 @@ import requests
 import time
 from pathlib import Path
 
-ARTIFACTORY_BASE_URL = (
-    "https://artifactory.vgt.vito.be/artifactory/auxdata-public/vito_agri/tutorials/"
+TERRASCOPE_BASE_URL = (
+    "https://auxdata.terrascope.be/worldcereal/vito-agri-tutorials/"
 )
 
 
@@ -55,13 +55,13 @@ def download_file(
     wait=2,
     overwrite=False,
 ) -> Path:
-    """Download a file from Artifactory.
+    """Download a file from Terrascope.
     Parameters
     ----------
     dstpath : Path
         Folder where the legend needs to be downloaded to.
     srcpath : str
-        Full path to the file in Artifactory.
+        Full path to the file in Terrascope.
     retries : int, optional
         Number of retries, by default 3
     wait : int, optional
@@ -85,7 +85,7 @@ def download_file(
         return download_file
 
     # Construct full source path
-    url = ARTIFACTORY_BASE_URL + srcpath
+    url = TERRASCOPE_BASE_URL + srcpath
 
     response = _run_request(
         "GET",
