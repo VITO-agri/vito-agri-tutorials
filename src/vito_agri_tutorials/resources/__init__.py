@@ -2,7 +2,7 @@ from pathlib import Path
 import geopandas as gpd
 from loguru import logger
 
-from vito_agri_tutorials.utils.artifactory import download_file
+from vito_agri_tutorials.utils.auxdata import download_file
 
 
 _filenames = {
